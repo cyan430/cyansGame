@@ -2,11 +2,10 @@
 #include<windows.h>
 
 using namespace std;
-using namespace std::chrono;
 
 int ran(int x, int y) {
     static mt19937 gen(static_cast<uint32_t>(//AI
-        duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count()
+        chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count()
     ));
     uniform_int_distribution<int> dist(x, y);
     return dist(gen);
@@ -48,7 +47,7 @@ void sl(){
     }
     for(int i = 1;i <= 16;i++){
         for(int j = 1;j <= 16;j++){
-            int rannum = ran(1, 20);
+            int rannum = ran(1, 10);
             if(rannum <= 3){
                 qp[i][j].boom = 1;
             }
@@ -65,6 +64,7 @@ void sl(){
             qp[i][j].nb = sum;
         }
     }
+    int firstopen = 1;
     while(1){
         system("cls");
         for(int i = 1;i <= 16;i++){
@@ -88,7 +88,7 @@ void sl(){
                 }else if(qp[i][j].pt == 0){
                     cout << "🟦";
                 }else if(qp[i][j].pt && qp[i][j].nb == 0){
-                    cout << "  ";
+                    cout << " .";
                 }else{
                     if(qp[i][j].nb == 1)cout << " \033[38;2;0;255;0m1";
                     if(qp[i][j].nb == 2)cout << " \033[38;2;36;219;0m2";
@@ -123,8 +123,26 @@ void sl(){
                 cin.ignore(10000, '\n');
                 continue;
             }
+            if(firstopen){
+                for(int i = -1;i <= 1;i++){
+                    for(int j = -1;j <= 1;j++){
+                        qp[x+i][y+j].boom = 0;
+                    }
+                }
+                for(int i = 1;i <= 16;i++){
+                    for(int j = 1;j <= 16;j++){
+                        int sum = 0;
+                        for(int o = i-1;o <= i+1;o++){
+                            for(int k = j-1;k <= j+1;k++){
+                                if(qp[o][k].boom)sum++;
+                            }
+                        }
+                        qp[i][j].nb = sum;
+                    }
+                }
+            }
             slopen(x, y);
-        }else{
+        }else if(cmd == "flag"){
             int x, y;
             cin >> x >> y;
             if(cin.fail() || x < 1 || x > 16 || y < 1 || y > 16){
@@ -133,6 +151,20 @@ void sl(){
                 continue;
             }
             qp[x][y].flag = !qp[x][y].flag;
+        }else{
+            int x, y;
+            cin >> x >> y;
+            int bsum = qp[x][y].nb;
+            int fsum = 0;
+            if(fsum == bsum){
+                for(int i = -1;i <= 1;i++){
+                    for(int j = -1;j <= 1;j++){
+                        slopen(x+i, y+j);
+                    }
+                }
+            }else{
+                cout << "\n>";
+            }
         }
 
     }
