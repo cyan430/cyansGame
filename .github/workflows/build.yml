@@ -27,7 +27,7 @@ jobs:
         shell: msys2 {0}
         run: |
           g++ -std=c++17 -O2 -Wall -Wextra \
-              src/main.cpp -o app.exe \
+              allgame.cpp -o app.exe \
               -static -static-libgcc -static-libstdc++ \
               -luser32 -lgdi32 -lkernel32
 
