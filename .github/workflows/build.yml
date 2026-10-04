@@ -3,35 +3,65 @@ name: Build EasyX with g++
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
+
+env:
+  BUILD_TYPE: Release
 
 jobs:
   build:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
 
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
 
-      - name: 安装 MSYS2 / MinGW
+      - name: 设置 MSYS2 环境
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
-          install: mingw-w64-x86_64-gcc
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
 
-      - name: 编译
-        shell: msys2 {0}
+      - name: 检查依赖目录
+        id: check_deps
         run: |
-          g++ -std=c++17 -O2 -Wall \
+          if [ ! -d "easyx/include" ] || [ ! -f "easyx/lib64/libeasyx.a" ]; then
+            echo "❌ 缺少 EasyX 库文件"
+            exit 1
+          fi
+          echo "✅ EasyX 依赖存在"
+
+      - name: 编译应用
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra \
               allgame.cpp -o app.exe \
               -I easyx/include \
+              -I .                           # ← 新增：让编译器能找到根目录下的 json.hpp
               -L easyx/lib64 \
               -leasyx -lgdi32 -lole32 \
               -static -static-libgcc -static-libstdc++
 
-      - name: 上传产物
+      - name: 快速验证可执行文件
+        run: |
+          if [ -f "app.exe" ]; then
+            echo "✅ 编译成功，文件大小: $(du -h app.exe | cut -f1)"
+            file app.exe
+          else
+            echo "❌ app.exe 未生成"
+            exit 1
+          fi
+
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: easyx-app
+          name: easyx-app-${{ github.sha }}
           path: app.exe
+          retention-days: 7
