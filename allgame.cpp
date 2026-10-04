@@ -213,16 +213,6 @@ bool slwin(){
     return 1;
 }
 
-void dtext(int fontSize, LPCTSTR text){
-    settextstyle(fontSize, 0, _T("微软雅黑"));
-    setbkmode(TRANSPARENT);
-    int textW = textwidth(text);
-    int textH = textheight(text);
-    int x = (getwidth() - textW) / 2;
-    int y = (getheight() - textH) / 2;
-    outtextxy(x, y, text);
-}
-
 void picsl(){
     system("cls");
     string hardly;
@@ -266,7 +256,7 @@ void picsl(){
             qp[i][j].nb = sum;
         }
     }
-    initgraph(512, 512);
+    initgraph(512, 512, EX_SHOWCONSOLE);
     setbkmode(TRANSPARENT);
     setbkcolor(RGB(255, 255, 255));
     IMAGE blocks;
@@ -299,11 +289,10 @@ void picsl(){
             for(int j = 1;j <= 16;j++){
                 if(qp[i][j].boom && qp[i][j].pt){
                     putimage((i-1) * 32, (j-1) * 32, &booms1); 
-                    setbkcolor(WHITE);
-                    settextcolor(RED);
-                    dtext(60, _T("GAME OVER!"));
+                    cout << "\nGAME OVER!" << endl;
                     Sleep(3000);
-                    exit(0);
+                    closegraph();
+                    return;
                 }else if(qp[i][j].flag){
                     putimage((i-1) * 32, (j-1) * 32, &flags); 
                 }else if(qp[i][j].pt){
@@ -369,20 +358,19 @@ void picsl(){
             if(qp[cx][cy].pt == 0){qp[cx][cy].flag = !qp[cx][cy].flag;}
         }
         if(slwin()){
-            settextcolor(GREEN);
-            outtextxy(200, 200, _T("YOU ARE WIN"));
+            cout << "\nYOU ARE WIN" << endl;
             Sleep(5000);
-            exit(0);
+            closegraph();
+            return;
         }
     }
-    Sleep(3000);
-    end:;
     closegraph();
 }
 
 void pvp(){
+    system("cls");
     int score = 0;
-    initgraph(512, 512);
+    initgraph(512, 512, EX_SHOWCONSOLE);
     IMAGE fplane;
     IMAGE nplane;
     IMAGE nplane2;
@@ -410,6 +398,7 @@ void pvp(){
     vector<en> et(100, {0, 9999, 5, 0});
     bool gameover = 0;
     while(1){
+        cout << "\r当前得分:" << score << "          " << flush;
         BeginBatchDraw();
         Sleep(2);
         cleardevice();
@@ -417,8 +406,10 @@ void pvp(){
         ExMessage msg;
         peekmessage(&msg);
         if(msg.message == WM_CLOSE){
+            closegraph();
             exit(0);
         }
+        
         fly -= ran(1, 3);
         if(fly <= 0){
             fly = 200;
@@ -433,7 +424,7 @@ void pvp(){
             }
         }
         if(msg.message == WM_MOUSEMOVE){
-            if(msg.x <= 0){
+            if(msg.x <= 0){ 
                 fplanex = 0;
             }else if(msg.x >= 512){
                 fplanex = 512;
@@ -491,7 +482,9 @@ void pvp(){
                    vt[i].y + zidan.getheight() > et[j].y &&
                    vt[i].y < et[j].y + nplane.getheight()){
                     et[j].hp--;
+                    score+=10;
                     if(et[j].hp <= 0){
+                        score+=100;
                         et[j].cd = 30;
                     }
                     vt[i].y = 9999;
@@ -501,11 +494,10 @@ void pvp(){
         }
         pm(fplanex, 512-70, &fplane);
         if(gameover){
-            setbkcolor(WHITE);
-            settextcolor(RED);
-            dtext(60, _T("GAME OVER!"));
+            cout << "\nGAME OVER! 得分:" << score << endl;
             EndBatchDraw();
             Sleep(3000);
+            closegraph();
             return;
         }
         EndBatchDraw();
@@ -534,7 +526,6 @@ int main(){
         }else if(cmd == "1"){
             sl();
             return 0;
-            system("cls");
         }else if(cmd == "2"){
             picsl();
             return 0;
