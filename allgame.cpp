@@ -381,6 +381,7 @@ void picsl(){
 }
 
 void pvp(){
+    int score = 0;
     initgraph(512, 512);
     IMAGE fplane;
     IMAGE nplane;
@@ -392,7 +393,7 @@ void pvp(){
     loadimage(&nplane2, _T("assets/textures/nplane2.png"));
     loadimage(&zidan,   _T("assets/textures/zidan.png"));
     loadimage(&sky,     _T("assets/textures/pvp.png"));
-    int fly = 100;
+    int fly = 200;
     int zd = 10;
     int fplanex = 248;
     struct wp{
@@ -402,10 +403,12 @@ void pvp(){
     struct en{
         int x;
         int y;
-        DWORD hit;
+        int hp;
+        int cd;
     };
-    vector<wp> vt(1000, {0, 9999});
-    vector<en> et(1000, {0, 9999, 0});
+    vector<wp> vt(100, {0, 9999});
+    vector<en> et(100, {0, 9999, 5, 0});
+    bool gameover = 0;
     while(1){
         BeginBatchDraw();
         Sleep(2);
@@ -418,12 +421,13 @@ void pvp(){
         }
         fly -= ran(1, 3);
         if(fly <= 0){
-            fly = 100;
-            for(int i = 0;i <= 999;i++){
+            fly = 200;
+            for(int i = 0;i < 100;i++){
                 if(et[i].y == 9999){
                     et[i].y = -30;
                     et[i].x = ran(0, 512 - 30);
-                    et[i].hit = 0;
+                    et[i].hp = 5;
+                    et[i].cd = 0;
                     break;
                 }
             }
@@ -438,7 +442,17 @@ void pvp(){
             }
         }
         zd--;
-        for(int i = 0;i <= 999;i++){
+        if(zd == 0){
+            zd = 10;
+            for(int i = 0;i < 100;i++){
+                if(vt[i].y == 9999){
+                    vt[i].y = 410;
+                    vt[i].x = fplanex + fplane.getwidth()/2 - zidan.getwidth()/2;
+                    break;
+                }
+            }
+        }
+        for(int i = 0;i < 100;i++){
             if(vt[i].y != 9999){
                 vt[i].y-=8;
                 pm(vt[i].x, vt[i].y, &zidan);
@@ -447,50 +461,53 @@ void pvp(){
                 }
             }
         }
-        if(zd == 0){
-            zd = 10;
-            for(int i = 0;i <= 999;i++){
-                if(vt[i].y == 9999){
-                    vt[i].y = 410;
-                    vt[i].x = msg.x - 16 + 3;
-                    break;
+        for(int i = 0;i < 100;i++){
+            if(et[i].y == 9999)continue;
+            if(et[i].cd > 0){
+                et[i].cd--;
+                if(et[i].cd == 0){
+                    et[i].y = 9999;
+                    continue;
                 }
-            }
-        }
-        for(int i = 0;i <= 999;i++){
-            if(et[i].y != 9999){
-                if(et[i].hit == 0){
-                    et[i].y+=3;
-                    pm(et[i].x, et[i].y, &nplane);
-                }else{
-                    if(GetTickCount() - et[i].hit >= 500){
-                        et[i].y = 9999;
-                        continue;
-                    }
-                    pm(et[i].x, et[i].y, &nplane2);
-                }
+                pm(et[i].x, et[i].y, &nplane2);
+            }else{
+                et[i].y+=3;
+                pm(et[i].x, et[i].y, &nplane);
                 if(et[i].y > 512){
                     et[i].y = 9999;
                 }
             }
-        }
-        for(int i = 0;i <= 999;i++){
-        if(vt[i].y == 9999)continue;
-        for(int j = 0;j <= 999;j++){
-            if(et[j].y == 9999)continue;
-            if(vt[i].x + zidan.getwidth() > et[j].x &&
-            vt[i].x < et[j].x + nplane.getwidth() &&
-            vt[i].y + zidan.getheight() > et[j].y &&
-            vt[i].y < et[j].y + nplane.getheight()){
-                if(et[j].hit == 0){
-                    et[j].hit = GetTickCount();
-                }
-                vt[i].y = 9999;
-                break;
+            if(et[i].y > 510){
+                gameover = 1;
             }
         }
-    }
+        for(int i = 0;i < 100;i++){
+            if(vt[i].y == 9999)continue;
+            for(int j = 0;j < 100;j++){
+                if(et[j].y == 9999)continue;
+                if(et[j].cd != 0)continue;
+                if(vt[i].x + zidan.getwidth() > et[j].x &&
+                   vt[i].x < et[j].x + nplane.getwidth() &&
+                   vt[i].y + zidan.getheight() > et[j].y &&
+                   vt[i].y < et[j].y + nplane.getheight()){
+                    et[j].hp--;
+                    if(et[j].hp <= 0){
+                        et[j].cd = 30;
+                    }
+                    vt[i].y = 9999;
+                    break;
+                }
+            }
+        }
         pm(fplanex, 512-70, &fplane);
+        if(gameover){
+            setbkcolor(WHITE);
+            settextcolor(RED);
+            dtext(60, _T("GAME OVER!"));
+            EndBatchDraw();
+            Sleep(3000);
+            return;
+        }
         EndBatchDraw();
     }
     closegraph();
