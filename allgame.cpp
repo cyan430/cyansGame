@@ -86,25 +86,16 @@ void sl(){
                     Sleep(2000);
                     return;
                 }else if(qp[i][j].flag){
-                    cout << "🚩";
+                    cout << "\033[41mp\033[0m ";
                 }else if(qp[i][j].pt == 0){
-                    cout << "🟦";
+                    cout << "\033[44m  \033[0m ";
                 }else if(qp[i][j].pt && qp[i][j].nb == 0){
-                    cout << " .";
+                    cout << "\033[100m. \033[0m ";
                 }else{
-                    if(qp[i][j].nb == 1)cout << " \033[38;2;0;255;0m1";
-                    if(qp[i][j].nb == 2)cout << " \033[38;2;36;219;0m2";
-                    if(qp[i][j].nb == 3)cout << " \033[38;2;73;182;0m3";
-                    if(qp[i][j].nb == 4)cout << " \033[38;2;109;146;0m4";
-                    if(qp[i][j].nb == 5)cout << " \033[38;2;146;109;0m5";
-                    if(qp[i][j].nb == 6)cout << " \033[38;2;182;73;0m6";
-                    if(qp[i][j].nb == 7)cout << " \033[38;2;219;36;0m7";
-                    if(qp[i][j].nb == 8)cout << " \033[38;2;255;0;0m8";
-                    if(qp[i][j].nb == 9)cout << "99";
-                    cout << "\033[0m";
+                    cout << "\033[100m" << qp[i][j].nb << " " << "\033[0m ";
                 }
             }
-            cout << endl;
+            cout << endl << endl;
         }
         for(int i = 1;i <= 16;i++){
             for(int j = 1;j <= 16;j++){
@@ -236,11 +227,6 @@ void picsl(){
     loadimage(&num7, _T("assets/textures/num7.png"));
     loadimage(&num8, _T("assets/textures/num8.png"));
     loadimage(&num0, _T("assets/textures/num0.png"));
-    /*for(int i = 1;i <= 16;i++){
-        for(int j = 1;j <= 16;j++){
-            putimage((i-1) * 32, (j-1) * 32, &blocks); 
-        }
-    }*/
     bool first = 1;
     while(1){
         for(int i = 1;i <= 16;i++){
@@ -277,13 +263,27 @@ void picsl(){
             closegraph();
             exit(0);
         }
-        int cellX = msg.x / 32 + 1;
-        int cellY = msg.y / 32 + 1;
-        if (msg.message == WM_LBUTTONDOWN) {
+        int cx = msg.x / 32 + 1;
+        int cy = msg.y / 32 + 1;
+        if (msg.message == WM_LBUTTONDOWN && msg.ctrl){
+            int sum = 0;
+            for(int o = -1;o <= 1;o++){
+                for(int k = -1;k <= 1;k++){
+                    if(qp[cx+o][cy+k].flag)sum++;
+                }
+            }
+            if(sum == qp[cx][cy].nb){
+                for(int o = -1;o <= 1;o++){
+                    for(int k = -1;k <= 1;k++){
+                        slopen(cx+o, cy+k);
+                    }
+                }
+            }
+        }else if (msg.message == WM_LBUTTONDOWN) {
             if(first){
                 for(int o = -1;o <= 1;o++){
                     for(int k = -1;k <= 1;k++){
-                        qp[cellX+o][cellY+k].boom = 0;
+                        qp[cx+o][cy+k].boom = 0;
                     }
                 }
                 for(int i = 1;i <= 16;i++){
@@ -299,10 +299,10 @@ void picsl(){
                 }
                 first = 0;
             }
-            slopen(cellX, cellY);
+            slopen(cx, cy);
         }
         else if (msg.message == WM_RBUTTONDOWN) {
-            qp[cellX][cellY].flag = !qp[cellX][cellY].flag;
+            if(qp[cx][cy].pt == 0){qp[cx][cy].flag = !qp[cx][cy].flag;}
         }
         /*
         if(slwin){
