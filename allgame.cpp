@@ -176,6 +176,16 @@ bool slwin(){
     return 1;
 }
 
+void dtext(int fontSize, LPCTSTR text){
+    settextstyle(fontSize, 0, _T("微软雅黑"));
+    setbkmode(TRANSPARENT);
+    int textW = textwidth(text);
+    int textH = textheight(text);
+    int x = (getwidth() - textW) / 2;
+    int y = (getheight() - textH) / 2;
+    outtextxy(x, y, text);
+}
+
 void picsl(){
     system("cls");
     string hardly;
@@ -250,13 +260,11 @@ void picsl(){
             for(int j = 1;j <= 16;j++){
                 if(qp[i][j].boom && qp[i][j].pt){
                     putimage((i-1) * 32, (j-1) * 32, &booms); 
-                    Sleep(3000);
                     setbkcolor(WHITE);
-                    cleardevice();
                     settextcolor(RED);
-                    settextstyle(60, 0, _T("微软雅黑"));
-                    outtextxy(200, 200, _T("GAME OVER"));
-                    goto end;
+                    dtext(60, _T("GAME OVER!"));
+                    Sleep(3000);
+                    exit(0);
                 }else if(qp[i][j].flag){
                     putimage((i-1) * 32, (j-1) * 32, &flags); 
                 }else if(qp[i][j].pt){
@@ -322,7 +330,10 @@ void picsl(){
             if(qp[cx][cy].pt == 0){qp[cx][cy].flag = !qp[cx][cy].flag;}
         }
         if(slwin()){
+            settextcolor(GREEN);
             outtextxy(200, 200, _T("YOU ARE WIN"));
+            Sleep(5000);
+            exit(0);
         }
     }
     Sleep(3000);
