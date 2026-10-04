@@ -1,10 +1,11 @@
 #include<bits/stdc++.h>
+#include<graphics.h>
 #include<windows.h>
 
 using namespace std;
 
-int ran(int x, int y) {
-    static mt19937 gen(static_cast<uint32_t>(//AI
+int ran(int x, int y) {//AI
+    static mt19937 gen(static_cast<uint32_t>(
         chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count()
     ));
     uniform_int_distribution<int> dist(x, y);
@@ -22,6 +23,7 @@ block slre;
 
 void slopen(int x, int y){
     if(x < 1 || x > 16 || y < 1 || y > 16) return;
+    if(qp[x][y].flag) return;
     qp[x][y].pt = 1;
     if(qp[x][y].nb == 0){
         if(qp[x][y].boom) return;
@@ -124,6 +126,7 @@ void sl(){
                 continue;
             }
             if(firstopen){
+                firstopen = !firstopen;
                 for(int i = -1;i <= 1;i++){
                     for(int j = -1;j <= 1;j++){
                         qp[x+i][y+j].boom = 0;
@@ -170,6 +173,147 @@ void sl(){
     }
 }
 
+bool slwin(){
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            if(qp[i][j].pt == 0 && qp[i][j].boom == 0){
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+void picsl(){
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            qp[i][j] = slre;
+        }
+    }
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            int rannum = ran(1, 10);
+            if(rannum <= 3){
+                qp[i][j].boom = 1;
+            }
+        }
+    }
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            int sum = 0;
+            for(int o = i-1;o <= i+1;o++){
+                for(int k = j-1;k <= j+1;k++){
+                    if(qp[o][k].boom)sum++;
+                }
+            }
+            qp[i][j].nb = sum;
+        }
+    }
+    initgraph(512, 512);
+    setbkmode(TRANSPARENT);
+    setbkcolor(RGB(255, 255, 255));
+    IMAGE blocks;
+    IMAGE booms;
+    IMAGE flags;
+    IMAGE num0;
+    IMAGE num1;
+    IMAGE num2;
+    IMAGE num3;
+    IMAGE num4;
+    IMAGE num5;
+    IMAGE num6;
+    IMAGE num7;
+    IMAGE num8;
+    loadimage(&booms, _T("assets/textures/booms.png"));
+    loadimage(&blocks, _T("assets/textures/blocks.png"));
+    loadimage(&flags, _T("assets/textures/flag.png"));
+    loadimage(&num1, _T("assets/textures/num1.png"));
+    loadimage(&num2, _T("assets/textures/num2.png"));
+    loadimage(&num3, _T("assets/textures/num3.png"));
+    loadimage(&num4, _T("assets/textures/num4.png"));
+    loadimage(&num5, _T("assets/textures/num5.png"));
+    loadimage(&num6, _T("assets/textures/num6.png"));
+    loadimage(&num7, _T("assets/textures/num7.png"));
+    loadimage(&num8, _T("assets/textures/num8.png"));
+    loadimage(&num0, _T("assets/textures/num0.png"));
+    /*for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            putimage((i-1) * 32, (j-1) * 32, &blocks); 
+        }
+    }*/
+    bool first = 1;
+    while(1){
+        for(int i = 1;i <= 16;i++){
+            for(int j = 1;j <= 16;j++){
+                if(qp[i][j].boom && qp[i][j].pt){
+                    putimage((i-1) * 32, (j-1) * 32, &booms); 
+                    Sleep(3000);
+                    setbkcolor(WHITE);
+                    cleardevice();
+                    settextcolor(RED);
+                    settextstyle(60, 0, _T("微软雅黑"));
+                    outtextxy(200, 200, _T("GAME OVER"));
+                    goto end;
+                }else if(qp[i][j].flag){
+                    putimage((i-1) * 32, (j-1) * 32, &flags); 
+                }else if(qp[i][j].pt){
+                    if(qp[i][j].nb == 0)putimage((i-1) * 32, (j-1) * 32, &num0); 
+                    if(qp[i][j].nb == 1)putimage((i-1) * 32, (j-1) * 32, &num1); 
+                    if(qp[i][j].nb == 2)putimage((i-1) * 32, (j-1) * 32, &num2); 
+                    if(qp[i][j].nb == 3)putimage((i-1) * 32, (j-1) * 32, &num3); 
+                    if(qp[i][j].nb == 4)putimage((i-1) * 32, (j-1) * 32, &num4); 
+                    if(qp[i][j].nb == 5)putimage((i-1) * 32, (j-1) * 32, &num5); 
+                    if(qp[i][j].nb == 6)putimage((i-1) * 32, (j-1) * 32, &num6); 
+                    if(qp[i][j].nb == 7)putimage((i-1) * 32, (j-1) * 32, &num7); 
+                    if(qp[i][j].nb == 8)putimage((i-1) * 32, (j-1) * 32, &num8); 
+                }else{
+                    putimage((i-1) * 32, (j-1) * 32, &blocks);
+                }
+            }
+        }
+        ExMessage msg;
+        msg = getmessage();
+        if (msg.message == WM_CLOSE) {
+            closegraph();
+            exit(0);
+        }
+        int cellX = msg.x / 32 + 1;
+        int cellY = msg.y / 32 + 1;
+        if (msg.message == WM_LBUTTONDOWN) {
+            if(first){
+                for(int o = -1;o <= 1;o++){
+                    for(int k = -1;k <= 1;k++){
+                        qp[cellX+o][cellY+k].boom = 0;
+                    }
+                }
+                for(int i = 1;i <= 16;i++){
+                    for(int j = 1;j <= 16;j++){
+                        int sum = 0;
+                        for(int o = i-1;o <= i+1;o++){
+                            for(int k = j-1;k <= j+1;k++){
+                                if(qp[o][k].boom) sum++;
+                            }
+                        }
+                        qp[i][j].nb = sum;
+                    }
+                }
+                first = 0;
+            }
+            slopen(cellX, cellY);
+        }
+        else if (msg.message == WM_RBUTTONDOWN) {
+            qp[cellX][cellY].flag = !qp[cellX][cellY].flag;
+        }
+        /*
+        if(slwin){
+            outtextxy(200, 200, _T("YOU ARE WIN"));
+        }*/
+    }
+    Sleep(3000);
+    end:;
+    closegraph();
+}
+
 int main(){
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode = 0;
@@ -181,6 +325,7 @@ int main(){
         cout << "游戏列表\n";
         cout << "0.退出\n";
         cout << "1.扫雷 - 终端\n";
+        cout << "2.扫雷 - 图形\n";
         cout << ">";
         string cmd;
         cin >> cmd;
@@ -189,6 +334,8 @@ int main(){
         }else if(cmd == "1"){
             sl();
             system("cls");
+        }else if(cmd == "2"){
+            picsl();
         }else{
             cout << "\n>";
         }
