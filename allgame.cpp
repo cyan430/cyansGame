@@ -369,6 +369,11 @@ void picsl(){
 
 void pvp(){
     system("cls");
+    cout << "请选择难度A.普通B.困难\n";
+    string cmd;
+    cin >> cmd;
+    int flyn = 200;
+    if(cmd == "B")flyn = 100;
     int score = 0;
     initgraph(512, 512, EX_SHOWCONSOLE);
     IMAGE fplane;
@@ -381,7 +386,7 @@ void pvp(){
     loadimage(&nplane2, _T("assets/textures/nplane2.png"));
     loadimage(&zidan,   _T("assets/textures/zidan.png"));
     loadimage(&sky,     _T("assets/textures/pvp.png"));
-    int fly = 200;
+    int fly = flyn;
     int zd = 10;
     int fplanex = 248;
     struct wp{
@@ -412,7 +417,7 @@ void pvp(){
         
         fly -= ran(1, 3);
         if(fly <= 0){
-            fly = 200;
+            fly = max(30, flyn);
             for(int i = 0;i < 100;i++){
                 if(et[i].y == 9999){
                     et[i].y = -30;
@@ -487,6 +492,7 @@ void pvp(){
                         score+=100;
                         et[j].cd = 30;
                     }
+                    if(score % 800 == 0)flyn -= 5;
                     vt[i].y = 9999;
                     break;
                 }
@@ -536,7 +542,7 @@ int main(){
         cout << "0.退出\n";
         cout << "1.扫雷 - 终端\n";
         cout << "2.扫雷 - 图形\n";
-        cout << "3.飞机大战(测试版,未完成)\n";
+        cout << "3.飞机大战\n";
         cout << ">";
         string cmd;
         cin >> cmd;
