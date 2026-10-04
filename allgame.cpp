@@ -1,10 +1,47 @@
 #include<bits/stdc++.h>
 #include<graphics.h>
 #include<windows.h>
+#pragma comment(lib, "MSIMG32.LIB")
 
 using namespace std;
 int slhard = 30;
 
+void pm(int x, int y, IMAGE* img) {
+    if (!img) return;
+
+    DWORD* src = GetImageBuffer(img);
+    DWORD* dst = GetImageBuffer(NULL);
+    int w  = img->getwidth();
+    int h  = img->getheight();
+    int sw = getwidth();
+    int sh = getheight();
+
+    for (int i = 0; i < h; i++) {
+        int py = y + i;
+        if (py < 0 || py >= sh) continue;
+        for (int j = 0; j < w; j++) {
+            int px = x + j;
+            if (px < 0 || px >= sw) continue;
+
+            DWORD c = src[i * w + j];
+            BYTE a = (c >> 24) & 0xFF;
+            if (a == 0) continue;
+
+            BYTE r = (c >> 16) & 0xFF;
+            BYTE g = (c >> 8)  & 0xFF;
+            BYTE b =  c        & 0xFF;
+
+            // 反预乘：把偏暗的 RGB 还原回原始颜色
+            if (a < 255) {
+                r = (BYTE)min(255, r * 255 / a);
+                g = (BYTE)min(255, g * 255 / a);
+                b = (BYTE)min(255, b * 255 / a);
+            }
+
+            dst[py * sw + px] = (0xFF << 24) | (r << 16) | (g << 8) | b;
+        }
+    }
+}
 int ran(int x, int y) {//AI
     static mt19937 gen(static_cast<uint32_t>(
         chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count()
@@ -190,7 +227,7 @@ void picsl(){
     system("cls");
     string hardly;
     cinhardly:
-    cout << "\n输入难度:A.简单(10%)B.普通(20%)C.中等(30%)D.困难(40%)\n>";
+    cout << "\n输入难度:A.简单(10%)B.普通(20%)C.中等(30%)D.困难(40%)E.魔鬼(60%)\n>";
     cin >> hardly;
     if(hardly == "A"){
         slhard = 10;
@@ -200,6 +237,8 @@ void picsl(){
         slhard = 30;
     }else if(hardly == "D"){
         slhard = 40;
+    }else if(hardly == "E"){
+        slhard = 60;
     }else{
         goto cinhardly;
     }
@@ -231,7 +270,7 @@ void picsl(){
     setbkmode(TRANSPARENT);
     setbkcolor(RGB(255, 255, 255));
     IMAGE blocks;
-    IMAGE booms;
+    IMAGE booms1;
     IMAGE flags;
     IMAGE num0;
     IMAGE num1;
@@ -242,7 +281,7 @@ void picsl(){
     IMAGE num6;
     IMAGE num7;
     IMAGE num8;
-    loadimage(&booms, _T("assets/textures/booms.png"));
+    loadimage(&booms1, _T("assets/textures/booms1.png"));
     loadimage(&blocks, _T("assets/textures/blocks.png"));
     loadimage(&flags, _T("assets/textures/flag.png"));
     loadimage(&num1, _T("assets/textures/num1.png"));
@@ -259,7 +298,7 @@ void picsl(){
         for(int i = 1;i <= 16;i++){
             for(int j = 1;j <= 16;j++){
                 if(qp[i][j].boom && qp[i][j].pt){
-                    putimage((i-1) * 32, (j-1) * 32, &booms); 
+                    putimage((i-1) * 32, (j-1) * 32, &booms1); 
                     setbkcolor(WHITE);
                     settextcolor(RED);
                     dtext(60, _T("GAME OVER!"));
@@ -341,18 +380,134 @@ void picsl(){
     closegraph();
 }
 
+void pvp(){
+    initgraph(512, 512);
+    IMAGE fplane;
+    IMAGE nplane;
+    IMAGE nplane2;
+    IMAGE zidan;
+    IMAGE sky;
+    loadimage(&fplane,  _T("assets/textures/fplane.png"));
+    loadimage(&nplane,  _T("assets/textures/nplane.png"));
+    loadimage(&nplane2, _T("assets/textures/nplane2.png"));
+    loadimage(&zidan,   _T("assets/textures/zidan.png"));
+    loadimage(&sky,     _T("assets/textures/pvp.png"));
+    int fly = 100;
+    int zd = 10;
+    int fplanex = 248;
+    struct wp{
+        int x;
+        int y;
+    };
+    struct en{
+        int x;
+        int y;
+        DWORD hit;
+    };
+    vector<wp> vt(1000, {0, 9999});
+    vector<en> et(1000, {0, 9999, 0});
+    while(1){
+        BeginBatchDraw();
+        Sleep(2);
+        cleardevice();
+        putimage(0, 0, &sky);
+        ExMessage msg;
+        peekmessage(&msg);
+        if(msg.message == WM_CLOSE){
+            exit(0);
+        }
+        fly -= ran(1, 3);
+        if(fly <= 0){
+            fly = 100;
+            for(int i = 0;i <= 999;i++){
+                if(et[i].y == 9999){
+                    et[i].y = -30;
+                    et[i].x = ran(0, 512 - 30);
+                    et[i].hit = 0;
+                    break;
+                }
+            }
+        }
+        if(msg.message == WM_MOUSEMOVE){
+            if(msg.x <= 0){
+                fplanex = 0;
+            }else if(msg.x >= 512){
+                fplanex = 512;
+            }else{
+                fplanex = msg.x - 16;
+            }
+        }
+        zd--;
+        for(int i = 0;i <= 999;i++){
+            if(vt[i].y != 9999){
+                vt[i].y-=8;
+                pm(vt[i].x, vt[i].y, &zidan);
+                if(vt[i].y < -40){
+                    vt[i].y = 9999;
+                }
+            }
+        }
+        if(zd == 0){
+            zd = 10;
+            for(int i = 0;i <= 999;i++){
+                if(vt[i].y == 9999){
+                    vt[i].y = 410;
+                    vt[i].x = msg.x - 16 + 3;
+                    break;
+                }
+            }
+        }
+        for(int i = 0;i <= 999;i++){
+            if(et[i].y != 9999){
+                if(et[i].hit == 0){
+                    et[i].y+=3;
+                    pm(et[i].x, et[i].y, &nplane);
+                }else{
+                    if(GetTickCount() - et[i].hit >= 500){
+                        et[i].y = 9999;
+                        continue;
+                    }
+                    pm(et[i].x, et[i].y, &nplane2);
+                }
+                if(et[i].y > 512){
+                    et[i].y = 9999;
+                }
+            }
+        }
+        for(int i = 0;i <= 999;i++){
+            if(vt[i].y == 9999)continue;
+            for(int j = 0;j <= 999;j++){
+                if(et[j].y == 9999)continue;
+                if(et[j].hit != 0)continue;
+                if(vt[i].x + zidan.getwidth() > et[j].x &&
+                   vt[i].x < et[j].x + nplane.getwidth() &&
+                   vt[i].y + zidan.getheight() > et[j].y &&
+                   vt[i].y < et[j].y + nplane.getheight()){
+                    et[j].hit = GetTickCount();
+                    vt[i].y = 9999;
+                    break;
+                }
+            }
+        }
+        pm(fplanex, 512-70, &fplane);
+        EndBatchDraw();
+    }
+    closegraph();
+}
+
 int main(){
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode = 0;
     GetConsoleMode(hOut, &mode);
     mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     SetConsoleMode(hOut, mode);
-    system("chcp 65001");
+    system("chcp 65001 && cls");
     while(1){
-        cout << "游戏列表\n";
+        cout << "\n游戏列表\n";
         cout << "0.退出\n";
         cout << "1.扫雷 - 终端\n";
         cout << "2.扫雷 - 图形\n";
+        cout << "3.飞机大战(测试版,未完成)\n";
         cout << ">";
         string cmd;
         cin >> cmd;
@@ -360,13 +515,15 @@ int main(){
             exit(0);
         }else if(cmd == "1"){
             sl();
+            return 0;
             system("cls");
         }else if(cmd == "2"){
             picsl();
-        }else{
-            cout << "\n>";
+            return 0;
+        }else if(cmd == "3"){
+            pvp();
+            return 0;
         }
-    
     }
     return 0;
 }
