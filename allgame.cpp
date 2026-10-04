@@ -3,6 +3,7 @@
 #include<windows.h>
 
 using namespace std;
+int slhard = 30;
 
 int ran(int x, int y) {//AI
     static mt19937 gen(static_cast<uint32_t>(
@@ -176,6 +177,22 @@ bool slwin(){
 }
 
 void picsl(){
+    system("cls");
+    string hardly;
+    cinhardly:
+    cout << "\n输入难度:A.简单(10%)B.普通(20%)C.中等(30%)D.困难(40%)\n>";
+    cin >> hardly;
+    if(hardly == "A"){
+        slhard = 10;
+    }else if(hardly == "B"){
+        slhard = 20;
+    }else if(hardly == "C"){
+        slhard = 30;
+    }else if(hardly == "D"){
+        slhard = 40;
+    }else{
+        goto cinhardly;
+    }
     for(int i = 1;i <= 16;i++){
         for(int j = 1;j <= 16;j++){
             qp[i][j] = slre;
@@ -183,8 +200,8 @@ void picsl(){
     }
     for(int i = 1;i <= 16;i++){
         for(int j = 1;j <= 16;j++){
-            int rannum = ran(1, 10);
-            if(rannum <= 3){
+            int rannum = ran(1, 100);
+            if(rannum <= slhard){
                 qp[i][j].boom = 1;
             }
         }
@@ -304,10 +321,9 @@ void picsl(){
         else if (msg.message == WM_RBUTTONDOWN) {
             if(qp[cx][cy].pt == 0){qp[cx][cy].flag = !qp[cx][cy].flag;}
         }
-        /*
-        if(slwin){
+        if(slwin()){
             outtextxy(200, 200, _T("YOU ARE WIN"));
-        }*/
+        }
     }
     Sleep(3000);
     end:;
