@@ -475,20 +475,21 @@ void pvp(){
             }
         }
         for(int i = 0;i <= 999;i++){
-            if(vt[i].y == 9999)continue;
-            for(int j = 0;j <= 999;j++){
-                if(et[j].y == 9999)continue;
-                if(et[j].hit != 0)continue;
-                if(vt[i].x + zidan.getwidth() > et[j].x &&
-                   vt[i].x < et[j].x + nplane.getwidth() &&
-                   vt[i].y + zidan.getheight() > et[j].y &&
-                   vt[i].y < et[j].y + nplane.getheight()){
+        if(vt[i].y == 9999)continue;
+        for(int j = 0;j <= 999;j++){
+            if(et[j].y == 9999)continue;
+            if(vt[i].x + zidan.getwidth() > et[j].x &&
+            vt[i].x < et[j].x + nplane.getwidth() &&
+            vt[i].y + zidan.getheight() > et[j].y &&
+            vt[i].y < et[j].y + nplane.getheight()){
+                if(et[j].hit == 0){
                     et[j].hit = GetTickCount();
-                    vt[i].y = 9999;
-                    break;
                 }
+                vt[i].y = 9999;
+                break;
             }
         }
+    }
         pm(fplanex, 512-70, &fplane);
         EndBatchDraw();
     }
