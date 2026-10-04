@@ -494,7 +494,26 @@ void pvp(){
         }
         pm(fplanex, 512-70, &fplane);
         if(gameover){
+            string filename = "data.txt";
+            int line = 0;
+            ifstream in(filename);
+            if (in) {
+                if (!(in >> line)) line = 0;
+            } else {
+                line = 0;
+            }
+            in.close();
+
             cout << "\nGAME OVER! 得分:" << score << endl;
+            if (score > line) {
+                cout << "NEW BEST!";
+                line = score;
+            }
+
+            ofstream out(filename);
+            out << line;
+            out.close();
+
             EndBatchDraw();
             Sleep(3000);
             closegraph();
