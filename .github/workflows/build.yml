@@ -45,13 +45,7 @@ jobs:
       - name: 编译
         shell: msys2 {0}
         run: |
-          g++ -std=c++17 -O2 -Wall \
-              allgame.cpp -o app.exe \
-              -I easyx/include \
-              -I . \
-              -L easyx/lib64 \
-              -leasyx -lgdi32 -lole32 \
-              -static -static-libgcc -static-libstdc++
+          g++ allgame.cpp -o main.exe -leasyx -lgdi32 -lole32 -lwinmm -lwinhttp -lbcrypt -static-libgcc -static-libstdc++
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
