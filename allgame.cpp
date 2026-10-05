@@ -1,7 +1,6 @@
 #include<bits/stdc++.h>
 #include<graphics.h>
 #include<windows.h>
-#include "lb.h"
 #pragma comment(lib, "MSIMG32.LIB")
 
 using namespace std;
@@ -32,6 +31,7 @@ void pm(int x, int y, IMAGE* img) {
             BYTE g = (c >> 8)  & 0xFF;
             BYTE b =  c        & 0xFF;
 
+            // 反预乘：把偏暗的 RGB 还原回原始颜色
             if (a < 255) {
                 r = (BYTE)min(255, r * 255 / a);
                 g = (BYTE)min(255, g * 255 / a);
@@ -42,8 +42,7 @@ void pm(int x, int y, IMAGE* img) {
         }
     }
 }
-
-int ran(int x, int y) {
+int ran(int x, int y) {//AI
     static mt19937 gen(static_cast<uint32_t>(
         chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count()
     ));
@@ -289,23 +288,23 @@ void picsl(){
         for(int i = 1;i <= 16;i++){
             for(int j = 1;j <= 16;j++){
                 if(qp[i][j].boom && qp[i][j].pt){
-                    putimage((i-1) * 32, (j-1) * 32, &booms1);
+                    putimage((i-1) * 32, (j-1) * 32, &booms1); 
                     cout << "\nGAME OVER!" << endl;
                     Sleep(3000);
                     closegraph();
                     return;
                 }else if(qp[i][j].flag){
-                    putimage((i-1) * 32, (j-1) * 32, &flags);
+                    putimage((i-1) * 32, (j-1) * 32, &flags); 
                 }else if(qp[i][j].pt){
-                    if(qp[i][j].nb == 0)putimage((i-1) * 32, (j-1) * 32, &num0);
-                    if(qp[i][j].nb == 1)putimage((i-1) * 32, (j-1) * 32, &num1);
-                    if(qp[i][j].nb == 2)putimage((i-1) * 32, (j-1) * 32, &num2);
-                    if(qp[i][j].nb == 3)putimage((i-1) * 32, (j-1) * 32, &num3);
-                    if(qp[i][j].nb == 4)putimage((i-1) * 32, (j-1) * 32, &num4);
-                    if(qp[i][j].nb == 5)putimage((i-1) * 32, (j-1) * 32, &num5);
-                    if(qp[i][j].nb == 6)putimage((i-1) * 32, (j-1) * 32, &num6);
-                    if(qp[i][j].nb == 7)putimage((i-1) * 32, (j-1) * 32, &num7);
-                    if(qp[i][j].nb == 8)putimage((i-1) * 32, (j-1) * 32, &num8);
+                    if(qp[i][j].nb == 0)putimage((i-1) * 32, (j-1) * 32, &num0); 
+                    if(qp[i][j].nb == 1)putimage((i-1) * 32, (j-1) * 32, &num1); 
+                    if(qp[i][j].nb == 2)putimage((i-1) * 32, (j-1) * 32, &num2); 
+                    if(qp[i][j].nb == 3)putimage((i-1) * 32, (j-1) * 32, &num3); 
+                    if(qp[i][j].nb == 4)putimage((i-1) * 32, (j-1) * 32, &num4); 
+                    if(qp[i][j].nb == 5)putimage((i-1) * 32, (j-1) * 32, &num5); 
+                    if(qp[i][j].nb == 6)putimage((i-1) * 32, (j-1) * 32, &num6); 
+                    if(qp[i][j].nb == 7)putimage((i-1) * 32, (j-1) * 32, &num7); 
+                    if(qp[i][j].nb == 8)putimage((i-1) * 32, (j-1) * 32, &num8); 
                 }else{
                     putimage((i-1) * 32, (j-1) * 32, &blocks);
                 }
@@ -415,7 +414,7 @@ void pvp(){
             closegraph();
             exit(0);
         }
-
+        
         fly -= ran(1, 3);
         if(fly <= 0){
             fly = max(30, flyn);
@@ -430,7 +429,7 @@ void pvp(){
             }
         }
         if(msg.message == WM_MOUSEMOVE){
-            if(msg.x <= 0){
+            if(msg.x <= 0){ 
                 fplanex = 0;
             }else if(msg.x >= 512){
                 fplanex = 512;
@@ -501,22 +500,29 @@ void pvp(){
         }
         pm(fplanex, 512-70, &fplane);
         if(gameover){
-            int best = GetPersonalBest(g_current_user, "pvp");
+            string filename = "data.txt";
+            int line = 0;
+            ifstream in(filename);
+            if (in) {
+                if (!(in >> line)) line = 0;
+            } else {
+                line = 0;
+            }
+            in.close();
 
             cout << "\nGAME OVER! 得分:" << score << endl;
-            cout << "个人历史最高分:" << best << endl;
-            if (score > best) {
-                cout << "NEW BEST!" << endl;
+            if (score > line) {
+                cout << "NEW BEST!";
+                line = score;
             }
 
-            EndBatchDraw();
-            Sleep(1500);
-            closegraph();
-            SubmitPersonalBest(score, "pvp");
-            SubmitScore(score, "pvp");
+            ofstream out(filename);
+            out << line;
+            out.close();
 
-            cin.ignore();
-            cin.get();
+            EndBatchDraw();
+            Sleep(3000);
+            closegraph();
             return;
         }
         EndBatchDraw();
@@ -531,24 +537,12 @@ int main(){
     mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     SetConsoleMode(hOut, mode);
     system("chcp 65001 && cls");
-
-    // ===== 启动时登录 / 注册 =====
-    while(!LoginOrRegister()){
-        cout << "\n请重新登录...\n";
-        Sleep(1500);
-        system("cls");
-    }
-    Sleep(800);
-
     while(1){
-        system("cls");
-        cout << "\n当前用户：" << g_current_user << "\n";
-        cout << "游戏列表\n";
+        cout << "\n游戏列表\n";
         cout << "0.退出\n";
         cout << "1.扫雷 - 终端\n";
         cout << "2.扫雷 - 图形\n";
         cout << "3.飞机大战\n";
-        cout << "4.查看排行榜\n";
         cout << ">";
         string cmd;
         cin >> cmd;
@@ -556,16 +550,13 @@ int main(){
             exit(0);
         }else if(cmd == "1"){
             sl();
+            return 0;
         }else if(cmd == "2"){
             picsl();
+            return 0;
         }else if(cmd == "3"){
             pvp();
-        }else if(cmd == "4"){
-            system("cls");
-            ShowLeaderboard("pvp");
-            cout << "\n按回车返回菜单...";
-            cin.ignore();
-            cin.get();
+            return 0;
         }
     }
     return 0;
