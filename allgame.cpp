@@ -530,6 +530,75 @@ void pvp(){
     closegraph();
 }
 
+void dzk(){
+    initgraph(512, 512, EX_SHOWCONSOLE);
+    IMAGE walls;
+    IMAGE blueb;
+    IMAGE redb;
+    IMAGE pinkb;
+    IMAGE purpleb;
+    IMAGE balls;
+    IMAGE pingtai;
+    loadimage(&redb,  _T("assets/textures/redb.png"));
+    loadimage(&pinkb,  _T("assets/textures/pinkb.png"));
+    loadimage(&blueb,  _T("assets/textures/blueb.png"));
+    loadimage(&purpleb,  _T("assets/textures/purpleb.png"));
+    loadimage(&walls,  _T("assets/textures/walls.png"));
+    loadimage(&balls,  _T("assets/textures/balls.png"));
+    loadimage(&pingtai,  _T("assets/textures/pingtai.png"));
+    double bx = 240, by = 250;
+    double t = 30;
+    double dx = cos(t * 3.141 / 40.0) * 0.2;
+    double dy = sin(t * 3.141 / 40.0) * 0.2;
+    while(1){
+        BeginBatchDraw();
+        cleardevice();
+        ExMessage msg;
+        peekmessage(&msg);
+        bx += dx;
+        by += dy;
+        int bw = balls.getwidth();
+        int bh = balls.getheight();
+        if(bx <= 5 || bx >= 510){
+            dx = -dx;
+        }
+        if(by <= 5 || by >= 510){
+            dy = -dy;
+        }
+        int pw = 50;
+        int ph = 10;
+        int px = msg.x - 35;
+        int py = 400;
+        if (bx + bw > px && bx < px + pw && by + bh > py && by < py + ph) {
+            by = py - bh;
+            dy = -dy;
+        }
+        bool gameover = 0;
+        if(by > 500)gameover = 1;
+        putimage((int)bx, (int)by, &balls);
+        if(msg.message == WM_MOUSEMOVE){
+            int putx;
+            if(msg.x < 5){
+                putx = 5;
+            }else if(msg.x > 510){
+                putx = 510;
+            }else{
+                putx = msg.x;
+            }
+            putimage(msg.x - 35, 400, &pingtai);
+        }
+        EndBatchDraw();
+        if(gameover){
+            settextcolor(RED);
+            outtextxy(200, 200, _T("GAME OVER!"));
+            Sleep(3000);
+            closegraph();
+            exit(0);
+        }
+    }
+    closegraph();
+}
+
 int main(){
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     DWORD mode = 0;
@@ -543,6 +612,7 @@ int main(){
         cout << "1.扫雷 - 终端\n";
         cout << "2.扫雷 - 图形\n";
         cout << "3.飞机大战\n";
+        cout << "4.打砖块(测试版未完成)\n";
         cout << ">";
         string cmd;
         cin >> cmd;
@@ -557,6 +627,8 @@ int main(){
         }else if(cmd == "3"){
             pvp();
             return 0;
+        }else if(cmd == "4"){
+            dzk();
         }
     }
     return 0;
