@@ -3,65 +3,58 @@ name: Build EasyX with g++
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
-
-env:
-  BUILD_TYPE: Release
 
 jobs:
   build:
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
 
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
+        with:
+          submodules: recursive   # 如果 EasyX 是子模块，必须加
+          lfs: true               # 如果库文件由 LFS 管理，必须加
 
-      - name: 设置 MSYS2 环境
+      - name: 安装 MSYS2 / MinGW
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-make
+          install: mingw-w64-x86_64-gcc
 
-      - name: 检查依赖目录
-        id: check_deps
+      - name: 检查 EasyX 库文件
+        shell: msys2 {0}
         run: |
-          if [ ! -d "easyx/include" ] || [ ! -f "easyx/lib64/libeasyx.a" ]; then
-            echo "❌ 缺少 EasyX 库文件"
+          echo "=== easyx/include 内容 ==="
+          ls -la easyx/include/
+          echo "=== easyx/lib64 内容 ==="
+          ls -la easyx/lib64/
+          # 确认是否存在 .a 文件（MinGW 需要的格式）
+          if ls easyx/lib64/*.a 1>/dev/null 2>&1; then
+            echo "✅ 找到 .a 库文件"
+          elif ls easyx/lib64/*.lib 1>/dev/null 2>&1; then
+            echo "⚠️ 只找到 .lib 文件（MSVC 格式），MinGW 无法直接链接！"
+            echo "需要转换为 .a 或使用 EasyX for MinGW 版本。"
+            exit 1
+          else
+            echo "❌ easyx/lib64 下没有库文件"
             exit 1
           fi
-          echo "✅ EasyX 依赖存在"
 
-      - name: 编译应用
+      - name: 编译
+        shell: msys2 {0}
         run: |
-          g++ -std=c++17 -O2 -Wall -Wextra \
+          g++ -std=c++17 -O2 -Wall \
               allgame.cpp -o app.exe \
               -I easyx/include \
-              -I .                           # ← 新增：让编译器能找到根目录下的 json.hpp
+              -I . \
               -L easyx/lib64 \
               -leasyx -lgdi32 -lole32 \
               -static -static-libgcc -static-libstdc++
 
-      - name: 快速验证可执行文件
-        run: |
-          if [ -f "app.exe" ]; then
-            echo "✅ 编译成功，文件大小: $(du -h app.exe | cut -f1)"
-            file app.exe
-          else
-            echo "❌ app.exe 未生成"
-            exit 1
-          fi
-
-      - name: 上传构建产物
+      - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
-          name: easyx-app-${{ github.sha }}
+          name: easyx-app
           path: app.exe
-          retention-days: 7
