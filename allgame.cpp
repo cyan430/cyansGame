@@ -539,17 +539,39 @@ void dzk(){
     IMAGE purpleb;
     IMAGE balls;
     IMAGE pingtai;
+    IMAGE greenb;
     loadimage(&redb,  _T("assets/textures/redb.png"));
     loadimage(&pinkb,  _T("assets/textures/pinkb.png"));
     loadimage(&blueb,  _T("assets/textures/blueb.png"));
-    loadimage(&purpleb,  _T("assets/textures/purpleb.png"));
+    loadimage(&purpleb, _T("assets/textures/purpleb.png"));
+    loadimage(&greenb, _T("assets/textures/greenb.png"));
     loadimage(&walls,  _T("assets/textures/walls.png"));
     loadimage(&balls,  _T("assets/textures/balls.png"));
-    loadimage(&pingtai,  _T("assets/textures/pingtai.png"));
-    double bx = 240, by = 250;
-    double t = 30;
-    double dx = cos(t * 3.141 / 40.0) * 0.2;
-    double dy = sin(t * 3.141 / 40.0) * 0.2;
+    loadimage(&pingtai, _T("assets/textures/pingtai.png"));
+
+    int cell = 16;
+    int cols = 512 / cell;
+    int rows = 256 / cell;
+    int a[16][32] = {0};
+    for (int c = 0; c < cols; c++) {
+        a[0][c] = 1;
+    }
+    a[3][4] = 8;
+    a[3][5] = 8;
+    a[3][6] = 8;
+    a[3][7] = 8;
+
+    int putx = 160;
+    double bx = putx, by = 130;
+    double t = 88;
+    double dx = cos(t * 3.141 / 40.0) * 0.3;
+    double dy = sin(t * 3.141 / 40.0) * 0.3;
+    int bw = balls.getwidth();
+    int bh = balls.getheight();
+    int pw = 56;
+    int ph = 10;
+    int py = 440;
+
     while(1){
         BeginBatchDraw();
         cleardevice();
@@ -557,40 +579,75 @@ void dzk(){
         peekmessage(&msg);
         bx += dx;
         by += dy;
-        int bw = balls.getwidth();
-        int bh = balls.getheight();
-        if(bx <= 5 || bx >= 510){
+
+        if(bx <= 5 || bx >= 486){
             dx = -dx;
         }
-        if(by <= 5 || by >= 510){
+        if(by <= 5){
             dy = -dy;
         }
-        int pw = 50;
-        int ph = 10;
-        int px = msg.x - 35;
-        int py = 400;
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                if (a[r][c] == 1 || a[r][c] == 8) {
+                    int gx = c * cell;
+                    int gy = r * cell;
+                    if (bx + bw > gx && bx < gx + cell && by + bh > gy && by < gy + cell) {
+                        if (a[r][c] == 1) {
+                            a[r][c] = 0;
+                        }
+                        double overlap_left   = (bx + bw) - gx;
+                        double overlap_right  = (gx + cell) - bx;
+                        double overlap_top    = (by + bh) - gy;
+                        double overlap_bottom = (gy + cell) - by;
+                        double min_overlap_x = min(overlap_left, overlap_right);
+                        double min_overlap_y = min(overlap_top, overlap_bottom);
+                        if (min_overlap_x < min_overlap_y) {
+                            dx = -dx;
+                            if (overlap_left < overlap_right) bx = gx - bw;
+                            else bx = gx + cell;
+                        } else {
+                            dy = -dy;
+                            if (overlap_top < overlap_bottom) by = gy - bh;
+                            else by = gy + cell;
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                if (a[r][c] == 1) {
+                    pm(c * cell, r * cell, &redb);
+                } else if (a[r][c] == 8) {
+                    pm(c * cell, r * cell, &walls);
+                }
+            }
+        }
+
+        int px = msg.x - 26;
         if (bx + bw > px && bx < px + pw && by + bh > py && by < py + ph) {
             by = py - bh;
             dy = -dy;
         }
         bool gameover = 0;
-        if(by > 500)gameover = 1;
-        putimage((int)bx, (int)by, &balls);
+        if(by > 494)gameover = 1;
+        pm((int)bx, (int)by, &balls);
         if(msg.message == WM_MOUSEMOVE){
-            int putx;
-            if(msg.x < 5){
-                putx = 5;
-            }else if(msg.x > 510){
-                putx = 510;
+            if(msg.x < 36){
+                putx = 38;
+            }else if(msg.x > 478){
+                putx = 476;
             }else{
                 putx = msg.x;
             }
-            putimage(msg.x - 35, 400, &pingtai);
+            pm(putx - 13, py, &pingtai);
         }
         EndBatchDraw();
         if(gameover){
             settextcolor(RED);
-            outtextxy(200, 200, _T("GAME OVER!"));
+            outtextxy(210, 230, _T("GAME OVER!"));
             Sleep(3000);
             closegraph();
             exit(0);
