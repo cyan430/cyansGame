@@ -554,7 +554,7 @@ void dzk(){
     int rows = 256 / cell;
     int a[16][32] = {0};
     for (int c = 0; c < cols; c++) {
-        a[0][c] = 1;
+        a[0][c] = ran(1, 5);
     }
     a[3][4] = 8;
     a[3][5] = 8;
@@ -562,15 +562,15 @@ void dzk(){
     a[3][7] = 8;
 
     int putx = 160;
-    double bx = putx, by = 130;
-    double t = 88;
-    double dx = cos(t * 3.141 / 40.0) * 0.3;
-    double dy = sin(t * 3.141 / 40.0) * 0.3;
+    double bx = putx, by = 140;
+    double t = 87;
+    double dx = cos(t * 3.141 / 40.0) * 0.12;
+    double dy = sin(t * 3.141 / 40.0) * 0.12;
     int bw = balls.getwidth();
     int bh = balls.getheight();
-    int pw = 56;
-    int ph = 10;
-    int py = 440;
+    int pw = 58;
+    int ph = 11;
+    int py = 445;
 
     while(1){
         BeginBatchDraw();
@@ -580,7 +580,7 @@ void dzk(){
         bx += dx;
         by += dy;
 
-        if(bx <= 5 || bx >= 486){
+        if(bx <= 5 || bx >= 488){
             dx = -dx;
         }
         if(by <= 5){
@@ -589,65 +589,74 @@ void dzk(){
 
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
-                if (a[r][c] == 1 || a[r][c] == 8) {
-                    int gx = c * cell;
-                    int gy = r * cell;
-                    if (bx + bw > gx && bx < gx + cell && by + bh > gy && by < gy + cell) {
-                        if (a[r][c] == 1) {
-                            a[r][c] = 0;
-                        }
-                        double overlap_left   = (bx + bw) - gx;
-                        double overlap_right  = (gx + cell) - bx;
-                        double overlap_top    = (by + bh) - gy;
-                        double overlap_bottom = (gy + cell) - by;
-                        double min_overlap_x = min(overlap_left, overlap_right);
-                        double min_overlap_y = min(overlap_top, overlap_bottom);
-                        if (min_overlap_x < min_overlap_y) {
-                            dx = -dx;
-                            if (overlap_left < overlap_right) bx = gx - bw;
-                            else bx = gx + cell;
-                        } else {
-                            dy = -dy;
-                            if (overlap_top < overlap_bottom) by = gy - bh;
-                            else by = gy + cell;
-                        }
+                int val = a[r][c];
+                if (val == 0) continue;
+                int gx = c * cell;
+                int gy = r * cell;
+                if (bx + bw > gx && bx < gx + cell && by + bh > gy && by < gy + cell) {
+                    // 碰撞反弹
+                    double overlap_left   = (bx + bw) - gx;
+                    double overlap_right  = (gx + cell) - bx;
+                    double overlap_top    = (by + bh) - gy;
+                    double overlap_bottom = (gy + cell) - by;
+                    double min_overlap_x = min(overlap_left, overlap_right);
+                    double min_overlap_y = min(overlap_top, overlap_bottom);
+                    if (min_overlap_x < min_overlap_y) {
+                        dx = -dx;
+                        if (overlap_left < overlap_right) bx = gx - bw;
+                        else bx = gx + cell;
+                    } else {
+                        dy = -dy;
+                        if (overlap_top < overlap_bottom) by = gy - bh;
+                        else by = gy + cell;
                     }
+
+                    // 砖块状态变化
+                    if (val >= 1 && val <= 4) {
+                        a[r][c] = val - 1;  // 减1：3→2→1→0
+                    }
+                    // 值为8的墙壁不变
                 }
             }
         }
 
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
-                if (a[r][c] == 1) {
-                    pm(c * cell, r * cell, &redb);
-                } else if (a[r][c] == 8) {
-                    pm(c * cell, r * cell, &walls);
-                }
+                int val = a[r][c];
+                if (val == 0) continue;
+                IMAGE* img = nullptr;
+                if (val == 1) img = &redb;
+                else if (val == 2) img = &pinkb;
+                else if (val == 3) img = &blueb;
+                else if (val == 4) img = &purpleb;
+                else if (val == 5) img = &greenb;
+                else if (val == 8) img = &walls;
+                if (img) pm(c * cell, r * cell, img);
             }
         }
 
-        int px = msg.x - 26;
+        int px = msg.x - 31;
         if (bx + bw > px && bx < px + pw && by + bh > py && by < py + ph) {
             by = py - bh;
             dy = -dy;
         }
         bool gameover = 0;
-        if(by > 494)gameover = 1;
+        if(by > 496)gameover = 1;
         pm((int)bx, (int)by, &balls);
         if(msg.message == WM_MOUSEMOVE){
-            if(msg.x < 36){
-                putx = 38;
-            }else if(msg.x > 478){
-                putx = 476;
+            if(msg.x < 39){
+                putx = 42;
+            }else if(msg.x > 475){
+                putx = 473;
             }else{
                 putx = msg.x;
             }
-            pm(putx - 13, py, &pingtai);
+            pm(putx - 15, py, &pingtai);
         }
         EndBatchDraw();
         if(gameover){
             settextcolor(RED);
-            outtextxy(210, 230, _T("GAME OVER!"));
+            outtextxy(215, 235, _T("GAME OVER!"));
             Sleep(3000);
             closegraph();
             exit(0);
