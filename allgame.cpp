@@ -530,7 +530,95 @@ void pvp(){
     closegraph();
 }
 
+int dzka[16][32];
+
+void readl(){
+    using namespace std::filesystem;
+    path cur = current_path();
+    vector<path> files;
+    for (const auto& entry : directory_iterator(cur)) {
+        if (entry.path().extension() == ".cgame") {
+            files.push_back(entry.path());
+        }
+    }
+
+    if (files.empty()) {
+        // 无存档，使用默认布局
+        int cell = 16;
+        int cols = 512 / cell;
+        int rows = 256 / cell;
+        for (int c = 0; c < cols; c++) {
+            dzka[0][c] = ran(1, 5);
+        }
+        dzka[3][4] = 8;
+        dzka[3][5] = 8;
+        dzka[3][6] = 8;
+        dzka[3][7] = 8;
+        return;
+    }
+
+    path selected;
+    if (files.size() == 1) {
+        selected = files[0];
+    } else {
+        // 多个存档，让用户选择
+        cout << "检测到多个存档，请选择你想要导入的" << endl;
+        for (size_t i = 0; i < files.size(); i++) {
+            char letter = 'A' + i;
+            cout << letter << " " << files[i].filename().string() << "  ";
+        }
+        cout << endl << ">";
+
+        char choice;
+        while (true) {
+            cin >> choice;
+            if (choice >= 'A' && choice < 'A' + files.size()) {
+                selected = files[choice - 'A'];
+                break;
+            } else if (choice >= 'a' && choice < 'a' + files.size()) {
+                selected = files[choice - 'a'];
+                break;
+            }
+            cout << "无效选择，请重新输入: ";
+        }
+    }
+
+    // 直接读取文件（无头部）
+    ifstream file(selected);
+    if (!file.is_open()) {
+        cerr << "无法打开文件: " << selected << endl;
+        return;
+    }
+
+    char ch;
+    int row = 0, col = 0;
+    while (file.get(ch) && row < 16) {
+        if (ch >= '0' && ch <= '9') {
+            dzka[row][col] = ch - '0';
+            col++;
+            if (col == 32) {
+                col = 0;
+                row++;
+            }
+        }
+    }
+    file.close();
+}
+
+bool dzkwin(){
+    for(int i = 0;i <= 15;i++){
+        for(int j = 0;j <= 31;j++){
+            if(dzka[i][j] != 0 && dzka[i][j] != 8)return 0;
+        }
+    }
+    return 1;
+}
+
+
+
 void dzk(){
+
+    readl();
     initgraph(512, 512, EX_SHOWCONSOLE);
     IMAGE walls;
     IMAGE blueb;
@@ -552,17 +640,9 @@ void dzk(){
     int cell = 16;
     int cols = 512 / cell;
     int rows = 256 / cell;
-    int a[16][32] = {0};
-    for (int c = 0; c < cols; c++) {
-        a[0][c] = ran(1, 5);
-    }
-    a[3][4] = 8;
-    a[3][5] = 8;
-    a[3][6] = 8;
-    a[3][7] = 8;
 
     int putx = 160;
-    double bx = putx, by = 140;
+    double bx = putx, by = 300;
     double t = 87;
     double dx = cos(t * 3.141 / 40.0) * 0.12;
     double dy = sin(t * 3.141 / 40.0) * 0.12;
@@ -587,42 +667,56 @@ void dzk(){
             dy = -dy;
         }
 
+        // ---------- 修改开始：先收集所有碰撞砖块 ----------
+        vector<pair<int,int>> hits;
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
-                int val = a[r][c];
+                int val = dzka[r][c];
                 if (val == 0) continue;
                 int gx = c * cell;
                 int gy = r * cell;
                 if (bx + bw > gx && bx < gx + cell && by + bh > gy && by < gy + cell) {
-                    // 碰撞反弹
-                    double overlap_left   = (bx + bw) - gx;
-                    double overlap_right  = (gx + cell) - bx;
-                    double overlap_top    = (by + bh) - gy;
-                    double overlap_bottom = (gy + cell) - by;
-                    double min_overlap_x = min(overlap_left, overlap_right);
-                    double min_overlap_y = min(overlap_top, overlap_bottom);
-                    if (min_overlap_x < min_overlap_y) {
-                        dx = -dx;
-                        if (overlap_left < overlap_right) bx = gx - bw;
-                        else bx = gx + cell;
-                    } else {
-                        dy = -dy;
-                        if (overlap_top < overlap_bottom) by = gy - bh;
-                        else by = gy + cell;
-                    }
-
-                    // 砖块状态变化
-                    if (val >= 1 && val <= 4) {
-                        a[r][c] = val - 1;  // 减1：3→2→1→0
-                    }
-                    // 值为8的墙壁不变
+                    hits.push_back({r, c});
                 }
             }
         }
 
+        // 统一处理所有碰撞砖块
+        if (!hits.empty()) {
+            // 1. 对所有可破坏砖块减血
+            for (auto [r, c] : hits) {
+                int val = dzka[r][c];
+                if (val >= 1 && val <= 5) {
+                    dzka[r][c] = val - 1;
+                }
+            }
+
+            // 2. 根据第一个碰撞砖块计算反弹（保持原有反弹逻辑）
+            auto [r0, c0] = hits[0];
+            int gx = c0 * cell;
+            int gy = r0 * cell;
+            double overlap_left   = (bx + bw) - gx;
+            double overlap_right  = (gx + cell) - bx;
+            double overlap_top    = (by + bh) - gy;
+            double overlap_bottom = (gy + cell) - by;
+            double min_overlap_x = min(overlap_left, overlap_right);
+            double min_overlap_y = min(overlap_top, overlap_bottom);
+            if (min_overlap_x < min_overlap_y) {
+                dx = -dx;
+                if (overlap_left < overlap_right) bx = gx - bw;
+                else bx = gx + cell;
+            } else {
+                dy = -dy;
+                if (overlap_top < overlap_bottom) by = gy - bh;
+                else by = gy + cell;
+            }
+        }
+        // ---------- 修改结束 ----------
+
+        // 绘制砖块（与原代码一致）
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
-                int val = a[r][c];
+                int val = dzka[r][c];
                 if (val == 0) continue;
                 IMAGE* img = nullptr;
                 if (val == 1) img = &redb;
@@ -639,6 +733,10 @@ void dzk(){
         if (bx + bw > px && bx < px + pw && by + bh > py && by < py + ph) {
             by = py - bh;
             dy = -dy;
+        }
+        bool win = 0;
+        if(dzkwin()){
+            win = 1;
         }
         bool gameover = 0;
         if(by > 496)gameover = 1;
@@ -657,6 +755,12 @@ void dzk(){
         if(gameover){
             settextcolor(RED);
             outtextxy(215, 235, _T("GAME OVER!"));
+            Sleep(3000);
+            closegraph();
+            exit(0);
+        }else if(win){
+            settextcolor(GREEN);
+            outtextxy(215, 235, _T("YOU ARE WIN!"));
             Sleep(3000);
             closegraph();
             exit(0);
