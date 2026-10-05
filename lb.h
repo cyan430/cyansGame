@@ -1,439 +1,572 @@
-#pragma once
-#include <windows.h>
-#include <winhttp.h>
-#include <bcrypt.h>
-#include <conio.h>
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <iostream>
-#include <chrono>
-#include <ctime>
-#include <cstdio>
-#include "json.hpp"
+#include<bits/stdc++.h>
+#include<graphics.h>
+#include<windows.h>
+#include "lb.h"
+#pragma comment(lib, "MSIMG32.LIB")
 
-#pragma comment(lib, "winhttp.lib")
-#pragma comment(lib, "bcrypt.lib")
+using namespace std;
+int slhard = 30;
 
-using json = nlohmann::json;
+void pm(int x, int y, IMAGE* img) {
+    if (!img) return;
 
-// ==================== 硬编码配置 ====================
+    DWORD* src = GetImageBuffer(img);
+    DWORD* dst = GetImageBuffer(NULL);
+    int w  = img->getwidth();
+    int h  = img->getheight();
+    int sw = getwidth();
+    int sh = getheight();
 
-inline std::string GetToken() {
-    return "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";
-}
+    for (int i = 0; i < h; i++) {
+        int py = y + i;
+        if (py < 0 || py >= sh) continue;
+        for (int j = 0; j < w; j++) {
+            int px = x + j;
+            if (px < 0 || px >= sw) continue;
 
-inline std::string GetGistId() {
-    return "5d6b388614403d1b7afc25bb6ccd373a";
-}
+            DWORD c = src[i * w + j];
+            BYTE a = (c >> 24) & 0xFF;
+            if (a == 0) continue;
 
-// ==================== 数据结构 ====================
+            BYTE r = (c >> 16) & 0xFF;
+            BYTE g = (c >> 8)  & 0xFF;
+            BYTE b =  c        & 0xFF;
 
-struct ScoreEntry {
-    std::string name;
-    int score;
-    std::string mode;
-    std::string time;
-};
-
-struct User {
-    std::string name;
-    std::string pass_hash;
-    std::string created;
-};
-
-inline std::string g_current_user = "";
-
-inline std::string NowTime() {
-    time_t t = time(nullptr);
-    tm tm_;
-    localtime_s(&tm_, &t);
-    char buf[64];
-    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_);
-    return buf;
-}
-
-// ==================== SHA-256 ====================
-
-inline std::string SHA256(const std::string& input) {
-    BCRYPT_ALG_HANDLE hAlg = NULL;
-    BCRYPT_HASH_HANDLE hHash = NULL;
-    DWORD cbHashObject = 0, cbData = 0, cbHash = 0;
-    PBYTE pbHashObject = NULL, pbHash = NULL;
-    std::string result;
-
-    if (!BCRYPT_SUCCESS(BCryptOpenAlgorithmProvider(
-            &hAlg, BCRYPT_SHA256_ALGORITHM, NULL, 0))) return "";
-
-    BCryptGetProperty(hAlg, BCRYPT_OBJECT_LENGTH,
-        (PBYTE)&cbHashObject, sizeof(DWORD), &cbData, 0);
-    BCryptGetProperty(hAlg, BCRYPT_HASH_LENGTH,
-        (PBYTE)&cbHash, sizeof(DWORD), &cbData, 0);
-
-    pbHashObject = (PBYTE)malloc(cbHashObject);
-    pbHash = (PBYTE)malloc(cbHash);
-
-    if (BCRYPT_SUCCESS(BCryptCreateHash(hAlg, &hHash,
-            pbHashObject, cbHashObject, NULL, 0, 0))) {
-        BCryptHashData(hHash, (PBYTE)input.c_str(), (ULONG)input.size(), 0);
-        BCryptFinishHash(hHash, pbHash, cbHash, 0);
-
-        char hex[3];
-        for (DWORD i = 0; i < cbHash; i++) {
-            sprintf_s(hex, "%02x", pbHash[i]);
-            result += hex;
-        }
-        BCryptDestroyHash(hHash);
-    }
-
-    free(pbHashObject);
-    free(pbHash);
-    BCryptCloseAlgorithmProvider(hAlg, 0);
-    return result;
-}
-
-// ==================== HTTP 请求 ====================
-
-inline std::string HttpsRequest(
-    const std::wstring& method,
-    const std::wstring& host,
-    const std::wstring& path,
-    const std::string& body,
-    const std::string& token)
-{
-    std::string response;
-    HINTERNET hSession = WinHttpOpen(L"AllGame/1.0",
-        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-        WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) return "";
-
-    HINTERNET hConnect = WinHttpConnect(hSession, host.c_str(),
-        INTERNET_DEFAULT_HTTPS_PORT, 0);
-    if (!hConnect) { WinHttpCloseHandle(hSession); return ""; }
-
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, method.c_str(),
-        path.c_str(), NULL, WINHTTP_NO_REFERER,
-        WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE);
-    if (!hRequest) {
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return "";
-    }
-
-    std::wstring headers = L"Authorization: Bearer " +
-        std::wstring(token.begin(), token.end()) +
-        L"\r\nAccept: application/vnd.github+json\r\n"
-        L"X-GitHub-Api-Version: 2022-11-28\r\n"
-        L"Content-Type: application/json\r\n"
-        L"User-Agent: AllGame\r\n";
-
-    WinHttpSendRequest(hRequest, headers.c_str(), -1L,
-        (LPVOID)body.c_str(), (DWORD)body.size(),
-        (DWORD)body.size(), 0);
-    WinHttpReceiveResponse(hRequest, NULL);
-
-    DWORD size = 0;
-    do {
-        WinHttpQueryDataAvailable(hRequest, &size);
-        if (size == 0) break;
-        std::vector<char> buf(size + 1);
-        DWORD downloaded = 0;
-        WinHttpReadData(hRequest, buf.data(), size, &downloaded);
-        buf[downloaded] = '\0';
-        response += buf.data();
-    } while (size > 0);
-
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
-    return response;
-}
-
-// ==================== Gist 文件读写 ====================
-
-inline std::string ReadGistFile(const std::string& filename) {
-    std::string token = GetToken();
-    std::string gist_id = GetGistId();
-    if (token.empty() || gist_id.empty()) return "";
-
-    std::wstring path = L"/gists/" + std::wstring(gist_id.begin(), gist_id.end());
-    std::string resp = HttpsRequest(L"GET", L"api.github.com", path, "", token);
-    if (resp.empty()) return "";
-
-    try {
-        json outer = json::parse(resp);
-        if (!outer.contains("files") || !outer["files"].contains(filename))
-            return "";
-        return outer["files"][filename]["content"].get<std::string>();
-    } catch (...) {
-        return "";
-    }
-}
-
-inline bool WriteGistFile(const std::string& filename, const std::string& content) {
-    std::string token = GetToken();
-    std::string gist_id = GetGistId();
-    if (token.empty() || gist_id.empty()) return false;
-
-    json body;
-    body["files"][filename]["content"] = content;
-
-    std::wstring path = L"/gists/" + std::wstring(gist_id.begin(), gist_id.end());
-    std::string resp = HttpsRequest(L"PATCH", L"api.github.com",
-        path, body.dump(), token);
-    return !resp.empty();
-}
-
-// ==================== 用户管理 ====================
-
-inline std::vector<User> ReadUsers() {
-    std::vector<User> users;
-    std::string content = ReadGistFile("users.json");
-    if (content.empty()) return users;
-    try {
-        json arr = json::parse(content);
-        for (auto& item : arr) {
-            User u;
-            u.name = item.value("name", "");
-            u.pass_hash = item.value("pass", "");
-            u.created = item.value("created", "");
-            if (!u.name.empty()) users.push_back(u);
-        }
-    } catch (...) {}
-    return users;
-}
-
-inline bool WriteUsers(const std::vector<User>& users) {
-    json arr = json::array();
-    for (auto& u : users) {
-        arr.push_back({
-            {"name", u.name},
-            {"pass", u.pass_hash},
-            {"created", u.created}
-        });
-    }
-    return WriteGistFile("users.json", arr.dump(4));
-}
-
-// ==================== 隐藏密码输入 ====================
-
-inline std::string InputPassword() {
-    std::string pass;
-    char ch;
-    while ((ch = (char)_getch()) != '\r') {
-        if (ch == '\b') {
-            if (!pass.empty()) {
-                pass.pop_back();
-                std::cout << "\b \b";
+            if (a < 255) {
+                r = (BYTE)min(255, r * 255 / a);
+                g = (BYTE)min(255, g * 255 / a);
+                b = (BYTE)min(255, b * 255 / a);
             }
-        } else if (ch >= 32 && ch < 127) {
-            pass += ch;
-            std::cout << '*';
+
+            dst[py * sw + px] = (0xFF << 24) | (r << 16) | (g << 8) | b;
         }
     }
-    std::cout << '\n';
-    return pass;
 }
 
-// ==================== 登录 / 注册 ====================
+int ran(int x, int y) {
+    static mt19937 gen(static_cast<uint32_t>(
+        chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count()
+    ));
+    uniform_int_distribution<int> dist(x, y);
+    return dist(gen);
+}
 
-inline bool LoginOrRegister() {
-    std::string username, password;
+struct block{
+    bool boom = 0;
+    int nb = 0;
+    bool flag = 0;
+    bool pt = 0;
+}qp[18][18];
 
-    std::cout << "\n========= 账号登录 =========\n";
-    std::cout << "用户名: ";
-    std::cin >> username;
+block slre;
 
-    if (username.empty()) {
-        std::cout << "用户名不能为空\n";
-        return false;
+void slopen(int x, int y){
+    if(x < 1 || x > 16 || y < 1 || y > 16) return;
+    if(qp[x][y].flag) return;
+    qp[x][y].pt = 1;
+    if(qp[x][y].nb == 0){
+        if(qp[x][y].boom) return;
+        qp[x][y].pt = 1;
+        if(qp[x][y].nb == 0){
+            if(qp[x-1][y].pt == 0)slopen(x-1, y);
+            if(qp[x][y-1].pt == 0)slopen(x, y-1);
+            if(qp[x+1][y].pt == 0)slopen(x+1, y);
+            if(qp[x][y+1].pt == 0)slopen(x, y+1);
+            if(qp[x-1][y-1].pt == 0)slopen(x-1, y-1);
+            if(qp[x+1][y-1].pt == 0)slopen(x+1, y-1);
+            if(qp[x+1][y+1].pt == 0)slopen(x+1, y+1);
+            if(qp[x-1][y+1].pt == 0)slopen(x-1, y+1);
+        }
     }
-    if (username.size() > 20) {
-        std::cout << "用户名过长（最多20字符）\n";
-        return false;
+}
+
+void sl(){
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            qp[i][j] = slre;
+        }
     }
-
-    std::cout << "密码: ";
-    password = InputPassword();
-    if (password.empty()) {
-        std::cout << "密码不能为空\n";
-        return false;
-    }
-
-    std::string hash = SHA256(password);
-    if (hash.empty()) {
-        std::cout << "密码加密失败\n";
-        return false;
-    }
-
-    std::cout << "正在连接服务器...\n";
-    auto users = ReadUsers();
-
-    for (auto& u : users) {
-        if (u.name == username) {
-            if (u.pass_hash == hash) {
-                g_current_user = username;
-                std::cout << "\n[OK] 欢迎回来，" << username << "！\n";
-                return true;
-            } else {
-                std::cout << "\n[X] 密码错误！\n";
-                return false;
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            int rannum = ran(1, 10);
+            if(rannum <= 3){
+                qp[i][j].boom = 1;
             }
         }
     }
-
-    std::cout << "\n账号不存在，正在自动注册...\n";
-    users.push_back({ username, hash, NowTime() });
-    if (WriteUsers(users)) {
-        g_current_user = username;
-        std::cout << "[OK] 注册成功，欢迎 " << username << "！\n";
-        return true;
-    } else {
-        std::cout << "[X] 注册失败，请检查网络\n";
-        return false;
-    }
-}
-
-// ==================== 排行榜 ====================
-
-inline std::vector<ScoreEntry> ReadLeaderboard() {
-    std::vector<ScoreEntry> scores;
-    std::string content = ReadGistFile("leaderboard.json");
-    if (content.empty()) return scores;
-    try {
-        json arr = json::parse(content);
-        for (auto& item : arr) {
-            ScoreEntry e;
-            e.name = item.value("name", "匿名");
-            e.score = item.value("score", 0);
-            e.mode = item.value("mode", "unknown");
-            e.time = item.value("time", "");
-            scores.push_back(e);
-        }
-    } catch (...) {}
-    return scores;
-}
-
-inline bool WriteLeaderboard(const std::vector<ScoreEntry>& scores) {
-    json arr = json::array();
-    for (auto& s : scores) {
-        arr.push_back({
-            {"name", s.name},
-            {"score", s.score},
-            {"mode", s.mode},
-            {"time", s.time}
-        });
-    }
-    return WriteGistFile("leaderboard.json", arr.dump(4));
-}
-
-// 提交分数（只用于飞机大战）
-inline void SubmitScore(int score, const std::string& mode) {
-    if (g_current_user.empty()) {
-        std::cout << "未登录，无法提交分数\n";
-        return;
-    }
-
-    std::cout << "正在上传分数...\n";
-    auto scores = ReadLeaderboard();
-    scores.push_back({ g_current_user, score, mode, NowTime() });
-
-    std::sort(scores.begin(), scores.end(),
-        [](const ScoreEntry& a, const ScoreEntry& b) {
-            return a.score > b.score;
-        });
-    if (scores.size() > 50) scores.resize(50);
-
-    if (WriteLeaderboard(scores))
-        std::cout << "[OK] 分数已上传\n";
-    else
-        std::cout << "[X] 上传失败\n";
-}
-
-// ==================== 个人最高分（云端） ====================
-// 说明：扫雷不参与排行，最高分只针对飞机大战（mode = "pvp"）。
-// 数据仍复用云端 leaderboard.json，不新增文件、不写本地 data.txt，
-// 彻底杜绝通过修改本地文件刷分。
-
-// 读取某玩家在某模式下的最高分
-inline int GetPersonalBest(const std::string& username, const std::string& mode) {
-    auto scores = ReadLeaderboard();
-    int best = 0;
-    for (auto& s : scores) {
-        if (s.name == username && s.mode == mode) {
-            if (s.score > best) best = s.score;
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            int sum = 0;
+            for(int o = i-1;o <= i+1;o++){
+                for(int k = j-1;k <= j+1;k++){
+                    if(qp[o][k].boom)sum++;
+                }
+            }
+            qp[i][j].nb = sum;
         }
     }
-    return best;
+    int firstopen = 1;
+    while(1){
+        system("cls");
+        for(int i = 1;i <= 16;i++){
+            if(i <= 9){
+                cout << i;
+            }else{
+                char c;
+                c = i - 10 + 'A';
+                cout << c;
+            }
+            cout << " ";
+            for(int j = 1;j <= 16;j++){
+                if(qp[i][j].boom && qp[i][j].pt){
+                    cout << "\x1b[0m";
+                    system("cls");
+                    cout << "gameover!";
+                    Sleep(2000);
+                    return;
+                }else if(qp[i][j].flag){
+                    cout << "\033[41mp\033[0m ";
+                }else if(qp[i][j].pt == 0){
+                    cout << "\033[44m  \033[0m ";
+                }else if(qp[i][j].pt && qp[i][j].nb == 0){
+                    cout << "\033[100m. \033[0m ";
+                }else{
+                    cout << "\033[100m" << qp[i][j].nb << " " << "\033[0m ";
+                }
+            }
+            cout << endl << endl;
+        }
+        for(int i = 1;i <= 16;i++){
+            for(int j = 1;j <= 16;j++){
+                if(qp[i][j].boom == 0 && qp[i][j].pt == 0)goto cincmd;
+            }
+        }
+        cout << "\n\nYOU ARE WIN!";
+        Sleep(2000);
+        return;
+        cincmd:;
+        string cmd;
+        cin >> cmd;
+        if(cmd == "open"){
+            int x, y;
+            cin >> x >> y;
+            if(cin.fail() || x < 1 || x > 16 || y < 1 || y > 16){
+                cin.clear();
+                cin.ignore(10000, '\n');
+                continue;
+            }
+            if(firstopen){
+                firstopen = !firstopen;
+                for(int i = -1;i <= 1;i++){
+                    for(int j = -1;j <= 1;j++){
+                        qp[x+i][y+j].boom = 0;
+                    }
+                }
+                for(int i = 1;i <= 16;i++){
+                    for(int j = 1;j <= 16;j++){
+                        int sum = 0;
+                        for(int o = i-1;o <= i+1;o++){
+                            for(int k = j-1;k <= j+1;k++){
+                                if(qp[o][k].boom)sum++;
+                            }
+                        }
+                        qp[i][j].nb = sum;
+                    }
+                }
+            }
+            slopen(x, y);
+        }else if(cmd == "flag"){
+            int x, y;
+            cin >> x >> y;
+            if(cin.fail() || x < 1 || x > 16 || y < 1 || y > 16){
+                cin.clear();
+                cin.ignore(10000, '\n');
+                continue;
+            }
+            qp[x][y].flag = !qp[x][y].flag;
+        }else{
+            int x, y;
+            cin >> x >> y;
+            int bsum = qp[x][y].nb;
+            int fsum = 0;
+            if(fsum == bsum){
+                for(int i = -1;i <= 1;i++){
+                    for(int j = -1;j <= 1;j++){
+                        slopen(x+i, y+j);
+                    }
+                }
+            }else{
+                cout << "\n>";
+            }
+        }
+
+    }
 }
 
-// 提交个人最高分：仅当 newScore 高于该玩家该模式的云端最高分时
-// 才写入一条新记录；否则直接返回，不修改云端数据。
-// 内部按 玩家+模式 去重，只保留每人每模式的最高那条，低分记录会被清理掉。
-inline void SubmitPersonalBest(int newScore, const std::string& mode) {
-    if (g_current_user.empty()) {
-        std::cout << "未登录，无法保存最高分\n";
-        return;
-    }
-
-    auto scores = ReadLeaderboard();
-
-    int curBest = 0;
-    for (auto& s : scores) {
-        if (s.name == g_current_user && s.mode == mode) {
-            if (s.score > curBest) curBest = s.score;
+bool slwin(){
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            if(qp[i][j].pt == 0 && qp[i][j].boom == 0){
+                return 0;
+            }
         }
     }
-
-    if (newScore <= curBest) {
-        std::cout << "[OK] 未打破个人最高分(" << curBest << ")，云端记录不变\n";
-        return;
-    }
-
-    std::cout << "正在上传最高分...\n";
-
-    // 1) 去掉该玩家该模式的所有旧记录，稍后写入唯一最高记录
-    std::vector<ScoreEntry> filtered;
-    for (auto& s : scores) {
-        if (s.name == g_current_user && s.mode == mode) continue;
-        filtered.push_back(s);
-    }
-    filtered.push_back({ g_current_user, newScore, mode, NowTime() });
-
-    // 2) 重新按分数排序，并限制总条数（保护云端文件体积）
-    std::sort(filtered.begin(), filtered.end(),
-        [](const ScoreEntry& a, const ScoreEntry& b) {
-            return a.score > b.score;
-        });
-    if ((int)filtered.size() > 50) filtered.resize(50);
-
-    if (WriteLeaderboard(filtered)) {
-        std::cout << "[OK] 新个人最高分 " << newScore << " 已上传\n";
-    } else {
-        std::cout << "[X] 上传失败\n";
-    }
+    return 1;
 }
 
-// 显示排行榜
-inline void ShowLeaderboard(const std::string& mode) {
-    auto scores = ReadLeaderboard();
-    std::cout << "\n===== 排行榜 (" << mode << ") =====\n";
-
-    std::sort(scores.begin(), scores.end(),
-        [](const ScoreEntry& a, const ScoreEntry& b) {
-            return a.score > b.score;
-        });
-
-    if (scores.empty()) {
-        std::cout << "暂无记录\n";
-        return;
+void picsl(){
+    system("cls");
+    string hardly;
+    cinhardly:
+    cout << "\n输入难度:A.简单(10%)B.普通(20%)C.中等(30%)D.困难(40%)E.魔鬼(60%)\n>";
+    cin >> hardly;
+    if(hardly == "A"){
+        slhard = 10;
+    }else if(hardly == "B"){
+        slhard = 20;
+    }else if(hardly == "C"){
+        slhard = 30;
+    }else if(hardly == "D"){
+        slhard = 40;
+    }else if(hardly == "E"){
+        slhard = 60;
+    }else{
+        goto cinhardly;
     }
-
-    int rank = 1;
-    for (auto& s : scores) {
-        std::cout << rank++ << ". " << s.name
-                  << "  " << s.score
-                  << "  " << s.time << "\n";
-        if (rank > 20) break;
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            qp[i][j] = slre;
+        }
     }
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            int rannum = ran(1, 100);
+            if(rannum <= slhard){
+                qp[i][j].boom = 1;
+            }
+        }
+    }
+    for(int i = 1;i <= 16;i++){
+        for(int j = 1;j <= 16;j++){
+            int sum = 0;
+            for(int o = i-1;o <= i+1;o++){
+                for(int k = j-1;k <= j+1;k++){
+                    if(qp[o][k].boom)sum++;
+                }
+            }
+            qp[i][j].nb = sum;
+        }
+    }
+    initgraph(512, 512, EX_SHOWCONSOLE);
+    setbkmode(TRANSPARENT);
+    setbkcolor(RGB(255, 255, 255));
+    IMAGE blocks;
+    IMAGE booms1;
+    IMAGE flags;
+    IMAGE num0;
+    IMAGE num1;
+    IMAGE num2;
+    IMAGE num3;
+    IMAGE num4;
+    IMAGE num5;
+    IMAGE num6;
+    IMAGE num7;
+    IMAGE num8;
+    loadimage(&booms1, _T("assets/textures/booms1.png"));
+    loadimage(&blocks, _T("assets/textures/blocks.png"));
+    loadimage(&flags, _T("assets/textures/flag.png"));
+    loadimage(&num1, _T("assets/textures/num1.png"));
+    loadimage(&num2, _T("assets/textures/num2.png"));
+    loadimage(&num3, _T("assets/textures/num3.png"));
+    loadimage(&num4, _T("assets/textures/num4.png"));
+    loadimage(&num5, _T("assets/textures/num5.png"));
+    loadimage(&num6, _T("assets/textures/num6.png"));
+    loadimage(&num7, _T("assets/textures/num7.png"));
+    loadimage(&num8, _T("assets/textures/num8.png"));
+    loadimage(&num0, _T("assets/textures/num0.png"));
+    bool first = 1;
+    while(1){
+        for(int i = 1;i <= 16;i++){
+            for(int j = 1;j <= 16;j++){
+                if(qp[i][j].boom && qp[i][j].pt){
+                    putimage((i-1) * 32, (j-1) * 32, &booms1);
+                    cout << "\nGAME OVER!" << endl;
+                    Sleep(3000);
+                    closegraph();
+                    return;
+                }else if(qp[i][j].flag){
+                    putimage((i-1) * 32, (j-1) * 32, &flags);
+                }else if(qp[i][j].pt){
+                    if(qp[i][j].nb == 0)putimage((i-1) * 32, (j-1) * 32, &num0);
+                    if(qp[i][j].nb == 1)putimage((i-1) * 32, (j-1) * 32, &num1);
+                    if(qp[i][j].nb == 2)putimage((i-1) * 32, (j-1) * 32, &num2);
+                    if(qp[i][j].nb == 3)putimage((i-1) * 32, (j-1) * 32, &num3);
+                    if(qp[i][j].nb == 4)putimage((i-1) * 32, (j-1) * 32, &num4);
+                    if(qp[i][j].nb == 5)putimage((i-1) * 32, (j-1) * 32, &num5);
+                    if(qp[i][j].nb == 6)putimage((i-1) * 32, (j-1) * 32, &num6);
+                    if(qp[i][j].nb == 7)putimage((i-1) * 32, (j-1) * 32, &num7);
+                    if(qp[i][j].nb == 8)putimage((i-1) * 32, (j-1) * 32, &num8);
+                }else{
+                    putimage((i-1) * 32, (j-1) * 32, &blocks);
+                }
+            }
+        }
+        ExMessage msg;
+        msg = getmessage();
+        if (msg.message == WM_CLOSE) {
+            closegraph();
+            exit(0);
+        }
+        int cx = msg.x / 32 + 1;
+        int cy = msg.y / 32 + 1;
+        if (msg.message == WM_LBUTTONDOWN && msg.ctrl){
+            int sum = 0;
+            for(int o = -1;o <= 1;o++){
+                for(int k = -1;k <= 1;k++){
+                    if(qp[cx+o][cy+k].flag)sum++;
+                }
+            }
+            if(sum == qp[cx][cy].nb){
+                for(int o = -1;o <= 1;o++){
+                    for(int k = -1;k <= 1;k++){
+                        slopen(cx+o, cy+k);
+                    }
+                }
+            }
+        }else if (msg.message == WM_LBUTTONDOWN) {
+            if(first){
+                for(int o = -1;o <= 1;o++){
+                    for(int k = -1;k <= 1;k++){
+                        qp[cx+o][cy+k].boom = 0;
+                    }
+                }
+                for(int i = 1;i <= 16;i++){
+                    for(int j = 1;j <= 16;j++){
+                        int sum = 0;
+                        for(int o = i-1;o <= i+1;o++){
+                            for(int k = j-1;k <= j+1;k++){
+                                if(qp[o][k].boom) sum++;
+                            }
+                        }
+                        qp[i][j].nb = sum;
+                    }
+                }
+                first = 0;
+            }
+            slopen(cx, cy);
+        }
+        else if (msg.message == WM_RBUTTONDOWN) {
+            if(qp[cx][cy].pt == 0){qp[cx][cy].flag = !qp[cx][cy].flag;}
+        }
+        if(slwin()){
+            cout << "\nYOU ARE WIN" << endl;
+            Sleep(5000);
+            closegraph();
+            return;
+        }
+    }
+    closegraph();
+}
+
+void pvp(){
+    system("cls");
+    cout << "请选择难度A.普通B.困难\n";
+    string cmd;
+    cin >> cmd;
+    int flyn = 200;
+    if(cmd == "B")flyn = 100;
+    int score = 0;
+    initgraph(512, 512, EX_SHOWCONSOLE);
+    IMAGE fplane;
+    IMAGE nplane;
+    IMAGE nplane2;
+    IMAGE zidan;
+    IMAGE sky;
+    loadimage(&fplane,  _T("assets/textures/fplane.png"));
+    loadimage(&nplane,  _T("assets/textures/nplane.png"));
+    loadimage(&nplane2, _T("assets/textures/nplane2.png"));
+    loadimage(&zidan,   _T("assets/textures/zidan.png"));
+    loadimage(&sky,     _T("assets/textures/pvp.png"));
+    int fly = flyn;
+    int zd = 10;
+    int fplanex = 248;
+    struct wp{
+        int x;
+        int y;
+    };
+    struct en{
+        int x;
+        int y;
+        int hp;
+        int cd;
+    };
+    vector<wp> vt(100, {0, 9999});
+    vector<en> et(100, {0, 9999, 5, 0});
+    bool gameover = 0;
+    while(1){
+        cout << "\r当前得分:" << score << "          " << flush;
+        BeginBatchDraw();
+        Sleep(2);
+        cleardevice();
+        putimage(0, 0, &sky);
+        ExMessage msg;
+        peekmessage(&msg);
+        if(msg.message == WM_CLOSE){
+            closegraph();
+            exit(0);
+        }
+
+        fly -= ran(1, 3);
+        if(fly <= 0){
+            fly = max(30, flyn);
+            for(int i = 0;i < 100;i++){
+                if(et[i].y == 9999){
+                    et[i].y = -30;
+                    et[i].x = ran(0, 512 - 30);
+                    et[i].hp = 5;
+                    et[i].cd = 0;
+                    break;
+                }
+            }
+        }
+        if(msg.message == WM_MOUSEMOVE){
+            if(msg.x <= 0){
+                fplanex = 0;
+            }else if(msg.x >= 512){
+                fplanex = 512;
+            }else{
+                fplanex = msg.x - 16;
+            }
+        }
+        zd--;
+        if(zd == 0){
+            zd = 10;
+            for(int i = 0;i < 100;i++){
+                if(vt[i].y == 9999){
+                    vt[i].y = 410;
+                    vt[i].x = fplanex + fplane.getwidth()/2 - zidan.getwidth()/2;
+                    break;
+                }
+            }
+        }
+        for(int i = 0;i < 100;i++){
+            if(vt[i].y != 9999){
+                vt[i].y-=8;
+                pm(vt[i].x, vt[i].y, &zidan);
+                if(vt[i].y < -40){
+                    vt[i].y = 9999;
+                }
+            }
+        }
+        for(int i = 0;i < 100;i++){
+            if(et[i].y == 9999)continue;
+            if(et[i].cd > 0){
+                et[i].cd--;
+                if(et[i].cd == 0){
+                    et[i].y = 9999;
+                    continue;
+                }
+                pm(et[i].x, et[i].y, &nplane2);
+            }else{
+                et[i].y+=3;
+                pm(et[i].x, et[i].y, &nplane);
+                if(et[i].y > 512){
+                    et[i].y = 9999;
+                }
+            }
+            if(et[i].y > 510){
+                gameover = 1;
+            }
+        }
+        for(int i = 0;i < 100;i++){
+            if(vt[i].y == 9999)continue;
+            for(int j = 0;j < 100;j++){
+                if(et[j].y == 9999)continue;
+                if(et[j].cd != 0)continue;
+                if(vt[i].x + zidan.getwidth() > et[j].x &&
+                   vt[i].x < et[j].x + nplane.getwidth() &&
+                   vt[i].y + zidan.getheight() > et[j].y &&
+                   vt[i].y < et[j].y + nplane.getheight()){
+                    et[j].hp--;
+                    score+=10;
+                    if(et[j].hp <= 0){
+                        score+=100;
+                        et[j].cd = 30;
+                    }
+                    if(score % 800 == 0)flyn -= 5;
+                    vt[i].y = 9999;
+                    break;
+                }
+            }
+        }
+        pm(fplanex, 512-70, &fplane);
+        if(gameover){
+            int best = GetPersonalBest(g_current_user, "pvp");
+
+            cout << "\nGAME OVER! 得分:" << score << endl;
+            cout << "个人历史最高分:" << best << endl;
+            if (score > best) {
+                cout << "NEW BEST!" << endl;
+            }
+
+            EndBatchDraw();
+            Sleep(1500);
+            closegraph();
+            SubmitPersonalBest(score, "pvp");
+            SubmitScore(score, "pvp");
+
+            cin.ignore();
+            cin.get();
+            return;
+        }
+        EndBatchDraw();
+    }
+    closegraph();
+}
+
+int main(){
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD mode = 0;
+    GetConsoleMode(hOut, &mode);
+    mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, mode);
+    system("chcp 65001 && cls");
+
+    // ===== 启动时登录 / 注册 =====
+    while(!LoginOrRegister()){
+        cout << "\n请重新登录...\n";
+        Sleep(1500);
+        system("cls");
+    }
+    Sleep(800);
+
+    while(1){
+        system("cls");
+        cout << "\n当前用户：" << g_current_user << "\n";
+        cout << "游戏列表\n";
+        cout << "0.退出\n";
+        cout << "1.扫雷 - 终端\n";
+        cout << "2.扫雷 - 图形\n";
+        cout << "3.飞机大战\n";
+        cout << "4.查看排行榜\n";
+        cout << ">";
+        string cmd;
+        cin >> cmd;
+        if(cmd == "0"){
+            exit(0);
+        }else if(cmd == "1"){
+            sl();
+        }else if(cmd == "2"){
+            picsl();
+        }else if(cmd == "3"){
+            pvp();
+        }else if(cmd == "4"){
+            system("cls");
+            ShowLeaderboard("pvp");
+            cout << "\n按回车返回菜单...";
+            cin.ignore();
+            cin.get();
+        }
+    }
+    return 0;
 }
