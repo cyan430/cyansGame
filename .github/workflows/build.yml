@@ -1,37 +1,47 @@
-name: Build EasyX with g++
+name: Build
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:        # 允许在网页上手动点按钮触发
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
 
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
 
-      - name: 安装 MSYS2 / MinGW
+      - name: 安装 MSYS2 + MinGW
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
-          install: mingw-w64-x86_64-gcc
+          install: >-
+            mingw-w64-x86_64-gcc
 
       - name: 编译
         shell: msys2 {0}
         run: |
-          g++ -std=c++17 -O2 -Wall \
-              allgame.cpp -o app.exe \
-              -I easyx/include \
-              -L easyx/lib64 \
-              -leasyx -lgdi32 -lole32 \
-              -static -static-libgcc -static-libstdc++
+          g++ main.cpp -o main.exe \
+            -Irlb/include -Lrlb/lib \
+            -lraylib -lgdi32 -lwinmm \
+            -O2 -static
+
+      - name: 打包
+        shell: msys2 {0}
+        run: |
+          mkdir -p dist
+          cp main.exe dist/
+          cp -r assets dist/ 2>/dev/null || true
+          # ↓ 如果你的 raylib 是动态库，取消下面这行的注释
+          # cp rlb/lib/raylib.dll dist/
 
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:
-          name: easyx-app
-          path: app.exe
+          name: rhythm-game-windows
+          path: dist/
